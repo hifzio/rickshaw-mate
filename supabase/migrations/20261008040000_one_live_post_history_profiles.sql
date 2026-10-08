@@ -1,4 +1,4 @@
--- RickshawShare Dhaka — one live post at a time, ride history, public profiles.
+-- RickshawMate Dhaka — one live post at a time, ride history, public profiles.
 -- Run AFTER migrations 1-4, once. Idempotent.
 
 -- ============================================================================

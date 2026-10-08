@@ -3,15 +3,34 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { HubsProvider } from "@/components/HubsProvider";
 import { LangProvider } from "@/components/LangProvider";
 import { THEME_INIT_SCRIPT, ThemeProvider } from "@/components/ThemeProvider";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
+const DESCRIPTION =
+  "Share a rickshaw with a fellow office-goer at fixed landmarks along the Rampura–Banasree–Meradia–Aftab Nagar corridor and split the fare.";
+
 export const metadata: Metadata = {
-  title: "RickshawShare Dhaka — বনশ্রী-রামপুরা রিকশা পুল",
-  description:
-    "Share a rickshaw with a fellow office-goer at fixed landmarks along the Rampura–Banasree–Meradia–Aftab Nagar corridor and cut your fare by half.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${SITE_NAME} — বনশ্রী-রামপুরা রিকশা পুল`, template: `%s · ${SITE_NAME}` },
+  description: DESCRIPTION,
+  applicationName: SITE_NAME,
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  appleWebApp: { capable: true, title: "RickshawShare", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "black-translucent" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — share a rickshaw in Dhaka`,
+    description: DESCRIPTION,
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512 }],
+  },
+  twitter: { card: "summary", title: SITE_NAME, description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {

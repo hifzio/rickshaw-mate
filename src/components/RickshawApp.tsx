@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, WifiOff } from "lucide-react";
+import { Plus, Share2, WifiOff } from "lucide-react";
 import { Feed } from "@/components/Feed";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
@@ -46,17 +46,25 @@ const ERROR_KEYS: Record<string, string> = {
 type PendingAuth = { type: "post" } | { type: "claim"; post: RidePost } | { type: "none" };
 
 function LiveApp() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { uid, displayName } = useAuth();
   const now = useServerClock();
   const { profile, setProfile } = useProfile();
 
   const [route, setRoute] = useState<RouteFilter>(EMPTY_ROUTE);
-  const { isValidRoute } = useHubs();
+  const { isValidRoute, find } = useHubs();
   const routeReady = isValidRoute(route.originId, route.destinationId);
 
   // Restore the last route used on this device (saves two taps at the junction).
   useEffect(() => {
+    // A shared link (?from=…&to=…) wins over the remembered route.
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get("from");
+    const to = params.get("to");
+    if (from && to && isValidRoute(from, to)) {
+      setRoute({ originId: from, destinationId: to });
+      return;
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(ROUTE_KEY) ?? "null") as RouteFilter | null;
       if (saved && isValidRoute(saved.originId, saved.destinationId)) setRoute(saved);
@@ -72,6 +80,19 @@ function LiveApp() {
       setRoute((r) => ({ ...r, destinationId: "" }));
     }
   }, [route, isValidRoute]);
+
+  // Keep the address bar shareable: /?from=<hub>&to=<hub>.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (routeReady) {
+      url.searchParams.set("from", route.originId);
+      url.searchParams.set("to", route.destinationId);
+    } else {
+      url.searchParams.delete("from");
+      url.searchParams.delete("to");
+    }
+    window.history.replaceState(window.history.state, "", url);
+  }, [route, routeReady]);
 
   useEffect(() => {
     if (!routeReady) return;
@@ -139,6 +160,21 @@ function LiveApp() {
     setSignInOpen(false);
     setPendingAuth(null);
   }, []);
+
+  const shareRoute = useCallback(async () => {
+    const url = `${window.location.origin}/?from=${route.originId}&to=${route.destinationId}`;
+    const text = `${t("appName")}: ${find(route.originId)?.name[lang]} → ${find(route.destinationId)?.name[lang]}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: t("appName"), text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast(t("linkCopied"));
+      }
+    } catch {
+      /* the user dismissed the share sheet */
+    }
+  }, [route, find, lang, t, showToast]);
 
   const openSheet = useCallback(() => {
     if (!uid) requireSignIn({ type: "post" });
@@ -309,6 +345,17 @@ function LiveApp() {
           setHistoryOpen(true);
         }}
       />
+
+      {routeReady && (
+        <button
+          type="button"
+          onClick={() => void shareRoute()}
+          className="mx-4 mt-3 flex h-11 items-center gap-2 rounded-xl bg-zinc-900 px-3.5 text-sm font-bold text-indigo-300 ring-1 ring-line/10 active:scale-95"
+        >
+          <Share2 className="h-4 w-4" aria-hidden />
+          {t("shareRoute")}
+        </button>
+      )}
 
       {myLive && now !== null && (
         <LivePostBanner item={myLive} now={now} busy={busyId === myLive.id} onRemove={handleRemoveItem} />

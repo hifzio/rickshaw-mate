@@ -1,4 +1,4 @@
--- RickshawShare Dhaka — corridor v2
+-- RickshawMate Dhaka — corridor v2
 -- Run AFTER 20261008000000_init.sql and 20261008010000_hub_routes.sql, once.
 --   * hubs become direction-agnostic (a hub can be both a pickup point and a destination)
 --   * the curated corridor is replaced with the final mapping

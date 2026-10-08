@@ -1,4 +1,4 @@
-# RickshawShare Dhaka (বনশ্রী-রামপুরা রিকশা পুল)
+# RickshawMate Dhaka (বনশ্রী-রামপুরা রিকশা পুল)
 
 A mobile-first PWA that matches commuters at fixed landmarks along the Rampura–Banasree–Meradia–Aftab Nagar corridor so they can share a rickshaw. Phase 2 runs on Supabase (Postgres, Storage, Realtime, anonymous auth).
 
@@ -38,7 +38,7 @@ Browsing the feed needs no account. Tapping **I'm Waiting Here** or **Share This
 2. **Sign In / Providers → Email:** keep it enabled.
 3. **Sign In / Providers → Google:** enable it and paste a Client ID and Secret (below).
 4. **Sign In / Providers → Allow anonymous sign-ins:** turn this **off**. Migration 4 also rejects anonymous sessions.
-5. **Email Templates → Magic Link:** make sure the body contains `{{ .Token }}` so the email shows the 6-digit code. For example: `<h2>Your code</h2><p>Enter this code in RickshawShare: <b>{{ .Token }}</b></p>`
+5. **Email Templates → Magic Link:** make sure the body contains `{{ .Token }}` so the email shows the 6-digit code. For example: `<h2>Your code</h2><p>Enter this code in RickshawMate: <b>{{ .Token }}</b></p>`
 
 **Google credentials:** in [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an **OAuth client ID** of type *Web application*. Add `https://<your-project-ref>.supabase.co/auth/v1/callback` under **Authorized redirect URIs**, then copy the Client ID and Secret into Supabase.
 
@@ -80,18 +80,62 @@ The selfie button (`capture="user"`) opens the camera on phones. On desktop it o
 7. Tap a commuter's name to see their profile (name, photo, shared rides, member since; never a phone number). Open **My rides** from your account menu to see your history.
 8. Use the **EN / বাংলা** toggle for language and the sun/moon button for light or dark mode.
 
+## Deploy to Vercel
+
+**1. Push the code.** `.env.local` is git-ignored, so your keys won't be uploaded.
+```bash
+git init && git add . && git commit -m "RickshawMate"
+# create an empty repo on GitHub, then:
+git remote add origin https://github.com/<you>/rickshawmate.git
+git push -u origin main
+```
+
+**2. Import it.** In [vercel.com/new](https://vercel.com/new), pick the repo. Vercel detects Next.js, so leave the build settings alone. Set the **Project Name** to `rickshawmate`, which gives you `rickshawmate.vercel.app` if the name is free.
+
+**3. Add environment variables** (Project → Settings → Environment Variables, for Production, Preview and Development):
+
+| Name | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your anon / publishable key |
+| `NEXT_PUBLIC_SITE_URL` | optional, your custom domain |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | optional, shown on the privacy and terms pages |
+
+Redeploy after changing variables, because `NEXT_PUBLIC_*` values are baked in at build time.
+
+**4. Tell Supabase and Google about the new domain.** Skipping this is the usual reason sign-in fails after deploying.
+- **Supabase → Authentication → URL Configuration:** set **Site URL** to `https://rickshawmate.vercel.app` (or your domain). Under **Redirect URLs** add `https://rickshawmate.vercel.app/**` and `https://*.vercel.app/**` (the second covers preview deployments). Keep `http://localhost:3000/**` for local work.
+- **Google Cloud → your OAuth client → Authorized JavaScript origins:** add `https://rickshawmate.vercel.app`. The redirect URI stays the Supabase callback.
+- **Google consent screen:** add `https://rickshawmate.vercel.app/privacy` and `/terms` as the privacy policy and terms links.
+
+**5. Custom domain (optional).** Project → Settings → Domains. Then update `NEXT_PUBLIC_SITE_URL`, the Supabase URLs and the Google origin to the new domain.
+
+### Routes
+
+| URL | What it is |
+| --- | --- |
+| `/` | The app. It accepts `?from=<hub-id>&to=<hub-id>`, e.g. `/?from=aftab-nagar-gate&to=rampura-bridge`. The address bar updates as you pick a route, and the **Share this route link** button shares it (for WhatsApp groups). Invalid pairs are ignored. |
+| `/privacy`, `/terms` | Static legal pages (Google sign-in review asks for them). They are templates, so have them reviewed before launch. |
+| `/robots.txt`, `/sitemap.xml` | Generated, using your production domain on Vercel. |
+| `/manifest.webmanifest` | PWA manifest with 192/512 and maskable icons. |
+| anything else | A friendly 404 page. Runtime errors show a "Try again" page. |
+
+Responses carry security headers (`X-Frame-Options`, `nosniff`, `Referrer-Policy`, camera-only `Permissions-Policy`), set in [next.config.ts](next.config.ts). The app is fully static, so no server region needs choosing.
+
+**Folder name:** the project folder is still called `riksha-share`. It doesn't affect the deploy, and you can rename it any time with `mv`.
+
 ## Reading the browser console
 
-Open DevTools → Console. In development the app logs each step with a `[RickshawShare:<area>]` tag:
+Open DevTools → Console. In development the app logs each step with a `[RickshawMate:<area>]` tag:
 
 ```
-✅ [RickshawShare:auth]      Signed in anonymously (user 3f9a1c2e)
-✅ [RickshawShare:database]  Database connected successfully: loaded 11 hubs and 16 routes
-✅ [RickshawShare:realtime]  Live updates connected for aftab-nagar-gate → rampura-bridge
-ℹ️ [RickshawShare:feed]      Loaded 2 active ride(s) for aftab-nagar-gate → rampura-bridge
-ℹ️ [RickshawShare:photo]     Compressed 3201.4 KB → 48.2 KB (image/webp)
-✅ [RickshawShare:post]      Ride posted (id 7d21b0aa), it expires in 15 minutes
-ℹ️ [RickshawShare:realtime]  UPDATE on ride 7d21b0aa (status: matched)
+✅ [RickshawMate:auth]      Signed in anonymously (user 3f9a1c2e)
+✅ [RickshawMate:database]  Database connected successfully: loaded 11 hubs and 16 routes
+✅ [RickshawMate:realtime]  Live updates connected for aftab-nagar-gate → rampura-bridge
+ℹ️ [RickshawMate:feed]      Loaded 2 active ride(s) for aftab-nagar-gate → rampura-bridge
+ℹ️ [RickshawMate:photo]     Compressed 3201.4 KB → 48.2 KB (image/webp)
+✅ [RickshawMate:post]      Ride posted (id 7d21b0aa), it expires in 15 minutes
+ℹ️ [RickshawMate:realtime]  UPDATE on ride 7d21b0aa (status: matched)
 ```
 
 Red ❌ lines explain what to fix (missing env vars, anonymous sign-ins off, migrations not run, Realtime not enabled). Logs never include names, phone numbers or photo URLs. They are off in production builds unless you set `NEXT_PUBLIC_DEBUG_LOGS=true`.
@@ -125,7 +169,7 @@ src/
   mock/         Translations and the offline fallback landmark list
 supabase/
   migrations/   SQL: tables, indexes, RLS, RPCs, cron, realtime, storage
-public/         PWA manifest and icon
+public/         PWA manifest and icons
 ```
 
 ## Scripts

@@ -1,4 +1,4 @@
--- RickshawShare Dhaka — initial schema
+-- RickshawMate Dhaka — initial schema
 -- Paste into the Supabase SQL editor and run once. It is idempotent (safe to re-run).
 --
 -- BEFORE RUNNING: Authentication → Sign In / Providers → enable "Allow anonymous sign-ins".

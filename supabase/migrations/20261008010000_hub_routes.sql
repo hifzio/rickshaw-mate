@@ -1,4 +1,4 @@
--- RickshawShare Dhaka — curated, dependent routes (Origin → reachable Destinations + fare).
+-- RickshawMate Dhaka — curated, dependent routes (Origin → reachable Destinations + fare).
 -- Run AFTER 20261008000000_init.sql. Idempotent.
 
 -- ============================================================================

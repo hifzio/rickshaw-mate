@@ -20,7 +20,7 @@ type Level = keyof typeof STYLES;
 function emit(level: Level, scope: string, message: string, detail?: unknown) {
   if (!enabled || typeof window === "undefined") return;
   const method = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
-  const args: unknown[] = [`%c${ICONS[level]} [RickshawShare:${scope}]%c ${message}`, STYLES[level], "color:inherit"];
+  const args: unknown[] = [`%c${ICONS[level]} [RickshawMate:${scope}]%c ${message}`, STYLES[level], "color:inherit"];
   if (detail !== undefined) args.push(detail);
   method(...args);
 }

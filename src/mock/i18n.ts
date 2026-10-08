@@ -5,7 +5,7 @@ type Dict = Record<string, string>;
 /** `{n}` style placeholders are filled by `t()` in lib/i18n.ts. */
 export const DICTIONARY: Record<Lang, Dict> = {
   en: {
-    appName: "RickshawShare",
+    appName: "RickshawMate",
     tagline: "বনশ্রী-রামপুরা রিকশা পুল",
     langToggle: "বাংলা",
     from: "From",
@@ -101,6 +101,8 @@ export const DICTIONARY: Record<Lang, Dict> = {
     yourLivePost: "Your live post",
     onePostAtATime: "One post at a time. Remove it or wait for it to expire.",
     errAlreadyWaiting: "You already have a live post. Remove it or wait for it to expire.",
+    shareRoute: "Share this route link",
+    linkCopied: "Link copied. Paste it in your group chat.",
     errRoute: "That route isn't available. Pick a destination from the list.",
     setupTitle: "Connect Supabase",
     setupBody: "Copy .env.local.example to .env.local, add your project URL and anon key, then restart the dev server.",
@@ -125,7 +127,7 @@ export const DICTIONARY: Record<Lang, Dict> = {
     photoFailed: "Photo upload failed, so we posted without it.",
   },
   bn: {
-    appName: "রিকশাশেয়ার",
+    appName: "রিকশামেট",
     tagline: "বনশ্রী-রামপুরা রিকশা পুল",
     langToggle: "EN",
     from: "কোথা থেকে",
@@ -221,6 +223,8 @@ export const DICTIONARY: Record<Lang, Dict> = {
     yourLivePost: "আপনার লাইভ পোস্ট",
     onePostAtATime: "একসাথে একটি পোস্ট। মুছে ফেলুন বা মেয়াদ শেষ হওয়া পর্যন্ত অপেক্ষা করুন।",
     errAlreadyWaiting: "আপনার একটি লাইভ পোস্ট আছে। সেটি মুছুন বা মেয়াদ শেষ হওয়া পর্যন্ত অপেক্ষা করুন।",
+    shareRoute: "এই রুটের লিংক শেয়ার করুন",
+    linkCopied: "লিংক কপি হয়েছে। গ্রুপ চ্যাটে পেস্ট করুন।",
     errRoute: "এই রুটটি পাওয়া যাচ্ছে না। তালিকা থেকে গন্তব্য বেছে নিন।",
     setupTitle: "Supabase সংযুক্ত করুন",
     setupBody: "`.env.local.example` কপি করে `.env.local` বানান, প্রজেক্ট URL ও anon key বসান, তারপর ডেভ সার্ভার রিস্টার্ট করুন।",
