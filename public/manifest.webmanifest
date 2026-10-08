@@ -1,0 +1,13 @@
+{
+  "name": "RickshawShare Dhaka",
+  "short_name": "RickshawShare",
+  "description": "বনশ্রী-রামপুরা রিকশা পুল — share a rickshaw, split the fare.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#0f1640",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

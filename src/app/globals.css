@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --c-fg: 255 255 255;
+  --c-line: 255 255 255;
+  --c-navy-950: 10 15 46;
+  --c-navy-900: 15 22 64;
+  --c-navy-800: 27 36 104;
+  --c-navy-700: 42 52 144;
+  --c-zinc-950: 9 9 11;
+  --c-zinc-900: 24 24 27;
+  --c-zinc-800: 39 39 42;
+  --c-zinc-700: 63 63 70;
+  --c-zinc-600: 82 82 91;
+  --c-zinc-500: 113 113 122;
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-indigo-200: 199 210 254;
+  --c-indigo-300: 165 180 252;
+  --c-indigo-400: 129 140 248;
+  --c-emerald-300: 110 231 183;
+  --c-emerald-400: 52 211 153;
+  --c-amber-50: 255 251 235;
+  --c-amber-200: 253 230 138;
+  --c-amber-300: 252 211 77;
+  --c-rose-300: 253 164 175;
+  --c-rose-400: 251 113 133;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-fg: 15 23 42;
+  --c-line: 15 23 42;
+  --c-navy-950: 255 255 255;
+  --c-navy-900: 232 235 255;
+  --c-navy-800: 223 227 251;
+  --c-navy-700: 199 205 245;
+  --c-zinc-950: 244 245 251;
+  --c-zinc-900: 255 255 255;
+  --c-zinc-800: 236 238 247;
+  --c-zinc-700: 217 220 236;
+  --c-zinc-600: 176 181 207;
+  --c-zinc-500: 120 126 160;
+  --c-slate-100: 15 23 42;
+  --c-slate-200: 30 41 59;
+  --c-slate-300: 51 65 85;
+  --c-slate-400: 71 85 105;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 148 163 184;
+  --c-indigo-200: 67 56 202;
+  --c-indigo-300: 79 70 229;
+  --c-indigo-400: 79 70 229;
+  --c-emerald-300: 4 120 87;
+  --c-emerald-400: 5 150 105;
+  --c-amber-50: 120 53 15;
+  --c-amber-200: 146 64 14;
+  --c-amber-300: 180 83 9;
+  --c-rose-300: 190 18 60;
+  --c-rose-400: 225 29 72;
+}
+
+html,
+body {
+  background-color: rgb(var(--c-zinc-950));
+  color: rgb(var(--c-slate-100));
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
