@@ -79,7 +79,7 @@ export function useMyMatch(uid: string | null, onMatch: (info: MatchInfo) => voi
     };
 
     const channel = sb
-      .channel(`mine:${uid}`)
+      .channel(`mine:${uid}:${Math.random().toString(36).slice(2, 8)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "ride_requests", filter: `owner_id=eq.${uid}` },

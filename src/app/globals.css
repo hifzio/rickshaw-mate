@@ -68,6 +68,7 @@
 
 html,
 body {
+  overscroll-behavior-y: none;
   background-color: rgb(var(--c-zinc-950));
   color: rgb(var(--c-slate-100));
   -webkit-tap-highlight-color: transparent;

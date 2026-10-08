@@ -19,7 +19,10 @@ interface ThemeValue {
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  // Safe to read the DOM here: nothing theme-dependent renders during hydration (the app shell is static).
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark",
+  );
 
   // Pick up whatever the init script applied.
   useEffect(() => {

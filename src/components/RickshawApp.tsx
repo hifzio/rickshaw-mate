@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Plus, Share2, WifiOff } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
 import { Feed } from "@/components/Feed";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
@@ -14,6 +15,7 @@ import { useLang } from "@/components/LangProvider";
 import { MatchedScreen } from "@/components/MatchedScreen";
 import { PostRideSheet } from "@/components/PostRideSheet";
 import { ProfileSheet } from "@/components/ProfileSheet";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { RoutePrompt } from "@/components/RoutePrompt";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Toast } from "@/components/Toast";
@@ -27,8 +29,37 @@ import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import { EMPTY_ROUTE } from "@/mock/landmarks";
 import type { HistoryItem, MatchInfo, NewPostInput, Profile, RidePost, RouteFilter } from "@/types";
 
+const noopSubscribe = () => () => {};
+
+/**
+ * `false` on the server and during hydration, `true` afterwards, without a hydration mismatch.
+ * The live app needs browser-only state (saved route, language, session), so until then we
+ * show a static shell of identical size. Afterwards the first real render already has the
+ * right route and language: no prompt → skeleton → cards flicker.
+ */
+function useMounted() {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 export function RickshawApp() {
-  return isSupabaseConfigured ? <LiveApp /> : <SetupNotice />;
+  const mounted = useMounted();
+  if (!isSupabaseConfigured) return <SetupNotice />;
+  return mounted ? <LiveApp /> : <AppShell />;
+}
+
+/** Route from a shared link (?from=&to=), else the last route used on this device, else none. */
+function readInitialRoute(isValidRoute: (o: string, d: string) => boolean): RouteFilter {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get("from");
+    const to = params.get("to");
+    if (from && to && isValidRoute(from, to)) return { originId: from, destinationId: to };
+    const saved = JSON.parse(localStorage.getItem(ROUTE_KEY) ?? "null") as RouteFilter | null;
+    if (saved && isValidRoute(saved.originId, saved.destinationId)) return saved;
+  } catch {
+    /* storage unavailable */
+  }
+  return EMPTY_ROUTE;
 }
 
 const ROUTE_KEY = "rs:route";
@@ -51,28 +82,9 @@ function LiveApp() {
   const now = useServerClock();
   const { profile, setProfile } = useProfile();
 
-  const [route, setRoute] = useState<RouteFilter>(EMPTY_ROUTE);
   const { isValidRoute, find } = useHubs();
+  const [route, setRoute] = useState<RouteFilter>(() => readInitialRoute(isValidRoute));
   const routeReady = isValidRoute(route.originId, route.destinationId);
-
-  // Restore the last route used on this device (saves two taps at the junction).
-  useEffect(() => {
-    // A shared link (?from=…&to=…) wins over the remembered route.
-    const params = new URLSearchParams(window.location.search);
-    const from = params.get("from");
-    const to = params.get("to");
-    if (from && to && isValidRoute(from, to)) {
-      setRoute({ originId: from, destinationId: to });
-      return;
-    }
-    try {
-      const saved = JSON.parse(localStorage.getItem(ROUTE_KEY) ?? "null") as RouteFilter | null;
-      if (saved && isValidRoute(saved.originId, saved.destinationId)) setRoute(saved);
-    } catch {
-      /* storage unavailable */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // If the live route table no longer allows the selection, clear the destination.
   useEffect(() => {
@@ -102,7 +114,7 @@ function LiveApp() {
       /* storage unavailable */
     }
   }, [route, routeReady]);
-  const { rides, loading, error: feedError, addRide, removeRide } = useRides(route, routeReady);
+  const { rides, loading, error: feedError, addRide, removeRide, refresh: refreshFeed } = useRides(route, routeReady);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
@@ -371,21 +383,23 @@ function LiveApp() {
         </p>
       )}
 
-      {!routeReady ? (
-        <RoutePrompt hasOrigin={Boolean(route.originId)} />
-      ) : !ready ? (
-        <FeedSkeleton />
-      ) : (
-        <Feed
-          posts={posts}
-          now={now}
-          busyId={busyId}
-          onShare={handleShare}
-          onRemove={handleRemove}
-          onViewProfile={viewPostProfile}
-          onPost={openSheet}
-        />
-      )}
+      <PullToRefresh onRefresh={() => Promise.all([refreshFeed(), refreshMyRides()])}>
+        {!routeReady ? (
+          <RoutePrompt hasOrigin={Boolean(route.originId)} />
+        ) : !ready ? (
+          <FeedSkeleton />
+        ) : (
+          <Feed
+            posts={posts}
+            now={now}
+            busyId={busyId}
+            onShare={handleShare}
+            onRemove={handleRemove}
+            onViewProfile={viewPostProfile}
+            onPost={openSheet}
+          />
+        )}
+      </PullToRefresh>
 
       {/* Floating "I'm Waiting Here" — only when the feed has cards (empty state has its own CTA). */}
       {showFeed && posts.length > 0 && !myLive && !sheetOpen && !signInOpen && !match && !pendingClaim && (

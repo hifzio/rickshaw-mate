@@ -124,6 +124,18 @@ Responses carry security headers (`X-Frame-Options`, `nosniff`, `Referrer-Policy
 
 **Folder name:** the project folder is still called `riksha-share`. It doesn't affect the deploy, and you can rename it any time with `mv`.
 
+## Live updates, refresh and troubleshooting
+
+- **Three layers keep the feed correct:** Realtime pushes changes instantly, a silent refetch runs every 12 s (and on tab focus or reconnect) as a safety net, and the last result is cached per route so a reload paints instantly. Fetched data is merged with newer live changes, so a slow response can't hide a fresh post.
+- **Pull down to refresh** refetches the feed in place. The browser's own pull-to-refresh (a full page reload) is disabled on purpose, because it caused a flash.
+- **If a post still doesn't appear on another device**, open the console on that device and look for `[RickshawMate:realtime]` lines. A warning that live updates did not connect means `ride_requests` is missing from the Realtime publication. Fix it in the SQL editor:
+  ```sql
+  select * from pg_publication_tables where pubname = 'supabase_realtime';   -- ride_requests should be listed
+  alter publication supabase_realtime add table public.ride_requests;        -- only if it is missing
+  ```
+  Even then the list heals itself within 12 s.
+- Both people must have the **same From and To** selected. The address bar shows the current route, so you can compare.
+
 ## Reading the browser console
 
 Open DevTools → Console. In development the app logs each step with a `[RickshawMate:<area>]` tag:
