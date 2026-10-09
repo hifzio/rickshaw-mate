@@ -1,6 +1,6 @@
 "use client";
 
-import { Bike, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { AccountButton } from "@/components/AccountButton";
 import { useLang } from "@/components/LangProvider";
 import { useTheme } from "@/components/ThemeProvider";
@@ -20,9 +20,15 @@ export function Header({ onSignIn, onProfile, onHistory, onHome }: HeaderProps) 
     <header className="sticky top-0 z-30 border-b border-line/10 bg-navy-950/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="flex h-16 items-center justify-between gap-3 px-4">
         <button type="button" onClick={onHome} className="flex min-w-0 items-center gap-2.5 text-left active:opacity-80">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-ink shadow-md shadow-emerald-500/25">
-            <Bike className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-mark-96.png"
+            srcSet="/brand/logo-mark-96.png 1x, /brand/logo-mark-192.png 2x"
+            width={40}
+            height={40}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-xl shadow-md shadow-black/25 ring-1 ring-line/10"
+          />
           <span className="min-w-0">
             <span className="block truncate text-[17px] font-extrabold leading-tight tracking-tight text-fg">
               {t("appName")}

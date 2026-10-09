@@ -112,7 +112,8 @@ src/
   mock/         Translations and the offline fallback landmark list
 supabase/
   migrations/   SQL: tables, indexes, RLS, RPCs, cron, realtime, storage
-public/         PWA manifest and icons
+public/         PWA manifest, app icons, favicon, logo mark and social-share image
+brand/          Original logo file (the generated icons in public/ are cut from it)
 ```
 
 ## Scripts
