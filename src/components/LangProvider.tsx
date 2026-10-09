@@ -17,20 +17,20 @@ const LANG_KEY = "rs:lang";
 const LangContext = createContext<LangContextValue | null>(null);
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  // Remembered per device. The server renders "en"; only client-only UI reads this during
-  // hydration, so starting from the saved value avoids an English→Bengali flash on reload.
+  // Bengali is the default. A choice made with the toggle is remembered per device.
+  // The server renders "bn" too, so a first visit never flashes the wrong language.
   const [lang, setLang] = useState<Lang>(() => {
     try {
-      return typeof window !== "undefined" && localStorage.getItem(LANG_KEY) === "bn" ? "bn" : "en";
+      return typeof window !== "undefined" && localStorage.getItem(LANG_KEY) === "en" ? "en" : "bn";
     } catch {
-      return "en";
+      return "bn";
     }
   });
 
   const toggleLang = useCallback(
     () =>
       setLang((l) => {
-        const next: Lang = l === "en" ? "bn" : "en";
+        const next: Lang = l === "bn" ? "en" : "bn";
         try {
           localStorage.setItem(LANG_KEY, next);
         } catch {

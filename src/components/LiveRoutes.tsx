@@ -18,7 +18,7 @@ interface LiveRoutesProps {
 
 /** The answer to "where are the live requests?": every route with people waiting, one tap away. */
 export function LiveRoutes({ routes, loaded, error, onRetry, now, onOpen, onPost }: LiveRoutesProps) {
-  const { t, lang } = useLang();
+  const { t, lang, num } = useLang();
   const { find } = useHubs();
   const live = routes.filter((r) => r.soonestExpiry > now);
 
@@ -84,7 +84,7 @@ export function LiveRoutes({ routes, loaded, error, onRetry, now, onOpen, onPost
                 >
                   <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/25">
                     <Users className="h-4 w-4" aria-hidden />
-                    <span className="text-base font-extrabold leading-none">{r.waiting}</span>
+                    <span className="text-base font-extrabold leading-none">{num(r.waiting)}</span>
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-bold text-fg">{find(r.originId)?.name[lang]}</span>

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return (
-    <main className="mx-auto min-h-dvh max-w-[430px] px-5 pb-16 pt-[max(1rem,env(safe-area-inset-top))]">
+    <main lang="en" className="mx-auto min-h-dvh max-w-[430px] px-5 pb-16 pt-[max(1rem,env(safe-area-inset-top))]">
       <Link href="/" className="inline-flex h-11 items-center gap-1.5 text-sm font-bold text-indigo-300">
         <ArrowLeft className="h-4 w-4" aria-hidden />
         RickshawMate

@@ -78,7 +78,7 @@ The selfie button (`capture="user"`) opens the camera on phones. On desktop it o
 4. **Match:** both people see the **Match confirmed** screen with each other's name, photo, trust record, meeting spot and phone number. It stays (even after a reload) until the ride is marked **completed** or **cancelled**. If one side ends it, the other sees how.
 5. **Trust:** profiles show completed rides, cancelled matches, rides posted and joined, a completion rate and member-since date. Withdrawing a post before anyone joins is not counted against you. **My rides** (bottom bar) is a tab in the same page, not a separate screen: the header and bottom bar stay, and the phone's back button returns to Find.
 
-Other things to try: a second post while one is live is refused. Use the sun/moon button for light or dark mode and **EN / বাংলা** for language. **Share this route link** sends people straight to a route.
+Other things to try: a second post while one is live is refused. The app opens in **Bengali** by default. The **EN / বাংলা** button switches language (the choice is remembered on that device) and the sun/moon button switches light or dark mode. **Share this route link** sends people straight to a route.
 
 ## How it works
 
