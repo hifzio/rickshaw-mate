@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BadgeCheck, CalendarDays, Loader2, Route, Users, X } from "lucide-react";
+import { BadgeCheck, Loader2, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { useLang } from "@/components/LangProvider";
+import { TrustGrid } from "@/components/TrustStats";
 import { fetchPublicProfile } from "@/lib/rides";
 import type { PublicProfile } from "@/types";
 
@@ -17,7 +18,7 @@ interface UserProfileSheetProps {
 
 /** Basic public profile. Deliberately has no phone number or email. */
 export function UserProfileSheet({ userId, fallbackName = "", fallbackPhotoUrl, onClose }: UserProfileSheetProps) {
-  const { t, num, lang } = useLang();
+  const { t } = useLang();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
@@ -44,12 +45,6 @@ export function UserProfileSheet({ userId, fallbackName = "", fallbackPhotoUrl, 
 
   const name = profile?.name || fallbackName || t("commuter");
   const photo = profile?.photo_url ?? fallbackPhotoUrl;
-  const since = profile
-    ? new Intl.DateTimeFormat(lang === "bn" ? "bn-BD" : "en-GB", { month: "long", year: "numeric" }).format(
-        new Date(profile.member_since),
-      )
-    : "";
-
   return (
     <div className="fixed inset-0 z-[64] flex items-end justify-center">
       <button type="button" aria-label={t("close")} onClick={onClose} className="absolute inset-0 animate-fade-in bg-black/70" />
@@ -57,7 +52,7 @@ export function UserProfileSheet({ userId, fallbackName = "", fallbackPhotoUrl, 
         role="dialog"
         aria-modal="true"
         aria-label={name}
-        className="relative w-full max-w-[430px] animate-sheet-up rounded-t-[28px] border-t border-indigo-400/30 bg-zinc-950 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl"
+        className="relative max-h-[92dvh] w-full max-w-[430px] animate-sheet-up overflow-y-auto rounded-t-[28px] border-t border-indigo-400/30 bg-zinc-950 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl"
       >
         <div className="mx-auto h-1.5 w-12 rounded-full bg-line/20" aria-hidden />
         <button
@@ -87,25 +82,9 @@ export function UserProfileSheet({ userId, fallbackName = "", fallbackPhotoUrl, 
         )}
         {state === "error" && <p className="py-8 text-center text-sm text-slate-400">{t("profileUnavailable")}</p>}
 
-        {state === "ready" && profile && (
-          <dl className="mt-6 grid grid-cols-1 gap-2.5">
-            <Stat icon={<Users className="h-5 w-5" aria-hidden />} label={t("sharedRides")} value={num(profile.shares_completed)} />
-            <Stat icon={<Route className="h-5 w-5" aria-hidden />} label={t("ridesPosted")} value={num(profile.rides_posted)} />
-            <Stat icon={<CalendarDays className="h-5 w-5" aria-hidden />} label={t("memberSince")} value={since} />
-          </dl>
-        )}
+        {state === "ready" && profile && <TrustGrid profile={profile} />}
         <p className="mt-4 text-center text-xs text-slate-500">{t("profilePrivacy")}</p>
       </div>
-    </div>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl bg-zinc-900 p-4 ring-1 ring-line/10">
-      <span className="text-indigo-300">{icon}</span>
-      <dt className="flex-1 text-sm font-semibold text-slate-300">{label}</dt>
-      <dd className="text-base font-extrabold text-fg">{value}</dd>
     </div>
   );
 }

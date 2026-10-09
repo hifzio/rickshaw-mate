@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import { Camera, ImagePlus, Loader2, MapPin, Timer, X } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
+import { RouteSelector } from "@/components/RouteSelector";
 import { useHubs } from "@/components/HubsProvider";
 import { ProfileFields } from "@/components/ProfileFields";
 import { normalizePhone } from "@/lib/phone";
 import type { NewPostInput, Profile, RouteFilter } from "@/types";
 
 interface PostRideSheetProps {
+  /** Pre-filled route (may be empty: the user then picks it inside the sheet). */
   route: RouteFilter;
   initialProfile: Profile | null;
   onClose: () => void;
@@ -18,7 +20,7 @@ interface PostRideSheetProps {
 }
 
 export function PostRideSheet({ route, initialProfile, onClose, onSubmit }: PostRideSheetProps) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [note, setNote] = useState("");
   const [name, setName] = useState(initialProfile?.name ?? "");
   const [phone, setPhone] = useState(initialProfile?.phone ?? "");
@@ -29,9 +31,9 @@ export function PostRideSheet({ route, initialProfile, onClose, onSubmit }: Post
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { find } = useHubs();
-  const origin = find(route.originId);
-  const destination = find(route.destinationId);
+  const { isValidRoute } = useHubs();
+  const [postRoute, setPostRoute] = useState<RouteFilter>(route);
+  const routeOk = isValidRoute(postRoute.originId, postRoute.destinationId);
   const nameOk = name.trim().length >= 2;
   const normalized = normalizePhone(phone);
   const photoOk = Boolean(photo);
@@ -74,9 +76,16 @@ export function PostRideSheet({ route, initialProfile, onClose, onSubmit }: Post
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setTried(true);
-    if (!canSubmit || !nameOk || !normalized || !photoOk) return;
+    if (!canSubmit || !nameOk || !normalized || !photoOk || !routeOk) return;
     setSubmitting(true);
-    const ok = await onSubmit({ name: name.trim(), phone: normalized, note: note.trim(), photo });
+    const ok = await onSubmit({
+      name: name.trim(),
+      phone: normalized,
+      note: note.trim(),
+      photo,
+      originId: postRoute.originId,
+      destinationId: postRoute.destinationId,
+    });
     if (!ok) setSubmitting(false);
   };
 
@@ -113,22 +122,15 @@ export function PostRideSheet({ route, initialProfile, onClose, onSubmit }: Post
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 pb-4 pt-2">
-          {/* Route summary (auto-selected from header filter) */}
-          <div className="rounded-2xl bg-navy-900 p-4 ring-1 ring-indigo-400/20">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              {t("route")}
-            </p>
-            <div className="flex items-stretch gap-3">
-              <div className="flex flex-col items-center py-1.5" aria-hidden>
-                <span className="h-3 w-3 rounded-full bg-emerald-400" />
-                <span className="my-1 w-0.5 flex-1 bg-indigo-400/40" />
-                <span className="h-3 w-3 rounded-full bg-indigo-400" />
-              </div>
-              <div className="min-w-0 space-y-2.5">
-                <p className="truncate text-base font-bold text-fg">{origin?.name[lang]}</p>
-                <p className="truncate text-base font-bold text-fg">{destination?.name[lang]}</p>
-              </div>
-            </div>
+          {/* Route: pre-filled when you came from a route, otherwise pick it here */}
+          <div>
+            <p className="mb-2 text-sm font-bold text-fg">{t("route")}</p>
+            <RouteSelector route={postRoute} onChange={setPostRoute} className="" idPrefix="post" />
+            {tried && !routeOk && (
+              <p role="alert" className="mt-1.5 text-xs font-semibold text-rose-300">
+                {t("errRouteRequired")}
+              </p>
+            )}
           </div>
 
           {/* Standing spot */}

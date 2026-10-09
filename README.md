@@ -13,12 +13,13 @@ A mobile-first PWA that matches commuters at fixed landmarks along the Rampura�
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Set up sign-in (see **Sign-in setup** below).
-3. **SQL Editor →** run these five files **in order, once each**:
+3. **SQL Editor →** run these six files **in order, once each**:
    1. [20261008000000_init.sql](supabase/migrations/20261008000000_init.sql): tables, access rules, match/cancel functions, cron, Realtime, photo bucket
    2. [20261008010000_hub_routes.sql](supabase/migrations/20261008010000_hub_routes.sql): the `hub_routes` table and route enforcement
    3. [20261008020000_corridor_v2.sql](supabase/migrations/20261008020000_corridor_v2.sql): the final corridor, per-person fares, mandatory photos and the feed query
    4. [20261008030000_require_real_users.sql](supabase/migrations/20261008030000_require_real_users.sql): only signed-in Google/email users can post or share a ride
    5. [20261008040000_one_live_post_history_profiles.sql](supabase/migrations/20261008040000_one_live_post_history_profiles.sql): one live post per person, ride history access and public profiles
+   6. [20261008050000_trust_and_match_lifecycle.sql](supabase/migrations/20261008050000_trust_and_match_lifecycle.sql): completed/cancelled matches, trust statistics and the live-routes overview
 
    If one prints a `pg_cron not scheduled` notice, enable **Database → Extensions → pg_cron** and re-run the cron block at the end of the first file.
 4. Copy the env template and fill it in from **Project Settings → API**:
@@ -69,88 +70,15 @@ The layout is built for 360–430px screens. On desktop, open Chrome/Edge DevToo
 
 The selfie button (`capture="user"`) opens the camera on phones. On desktop it opens a file picker. Open two browser profiles (or one normal and one incognito window) to play both sides of a match.
 
-## Try the user journey
+## The flow
 
-1. Open the app (no sign-in needed to browse). The "To" dropdown is locked ("Select pickup point first") until you choose a "From" hub. After that it lists only destinations reachable from that hub, and a pill shows the shared cost per person.
-2. Tap **I'm Waiting Here**. Sign in with Google or an email code, then enter your name, mobile number and standing spot, add a photo (required), then **Post to Stand**. The post expires after 15 minutes.
-3. In a second browser profile, pick the same route. The post appears without a refresh. Tap the photo to enlarge it, then **Share This Rickshaw**.
-4. Both screens show the matched view with the other person's name and phone number.
-5. If two people tap Share on the same post at once, one wins and the other sees "Someone just took this rickshaw."
-6. Try posting a second time while your post is live. It is refused until the post expires or you remove it.
-7. Tap a commuter's name to see their profile (name, photo, shared rides, member since; never a phone number). Open **My rides** from your account menu to see your history.
-8. Use the **EN / বাংলা** toggle for language and the sun/moon button for light or dark mode.
+1. **Home** is the landing page. It explains the three steps, then shows **Live right now**: every route with people waiting, with counts. Tap one to see its requests. Or use **Find by route** (the "To" list unlocks once you pick a "From").
+2. **Route page** lists the people waiting there, each with a photo, exact spot and a live countdown. Tap a name to see their trust record. Tap **Share This Rickshaw** to match (sign-in needed).
+3. **Post** (the green button in the bottom bar) lets you pick a route inside the form, add a photo and your spot, and go live for 15 minutes. You can only have one live post at a time.
+4. **Match:** both people see the **Match confirmed** screen with each other's name, photo, trust record, meeting spot and phone number. It stays (even after a reload) until the ride is marked **completed** or **cancelled**. If one side ends it, the other sees how.
+5. **Trust:** profiles show completed rides, cancelled matches, rides posted and joined, a completion rate and member-since date. Withdrawing a post before anyone joins is not counted against you. **My rides** (bottom bar) is a tab in the same page, not a separate screen: the header and bottom bar stay, and the phone's back button returns to Find.
 
-## Deploy to Vercel
-
-**1. Push the code.** `.env.local` is git-ignored, so your keys won't be uploaded.
-```bash
-git init && git add . && git commit -m "RickshawMate"
-# create an empty repo on GitHub, then:
-git remote add origin https://github.com/<you>/rickshawmate.git
-git push -u origin main
-```
-
-**2. Import it.** In [vercel.com/new](https://vercel.com/new), pick the repo. Vercel detects Next.js, so leave the build settings alone. Set the **Project Name** to `rickshawmate`, which gives you `rickshawmate.vercel.app` if the name is free.
-
-**3. Add environment variables** (Project → Settings → Environment Variables, for Production, Preview and Development):
-
-| Name | Value |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | your anon / publishable key |
-| `NEXT_PUBLIC_SITE_URL` | optional, your custom domain |
-| `NEXT_PUBLIC_CONTACT_EMAIL` | optional, shown on the privacy and terms pages |
-
-Redeploy after changing variables, because `NEXT_PUBLIC_*` values are baked in at build time.
-
-**4. Tell Supabase and Google about the new domain.** Skipping this is the usual reason sign-in fails after deploying.
-- **Supabase → Authentication → URL Configuration:** set **Site URL** to `https://rickshawmate.vercel.app` (or your domain). Under **Redirect URLs** add `https://rickshawmate.vercel.app/**` and `https://*.vercel.app/**` (the second covers preview deployments). Keep `http://localhost:3000/**` for local work.
-- **Google Cloud → your OAuth client → Authorized JavaScript origins:** add `https://rickshawmate.vercel.app`. The redirect URI stays the Supabase callback.
-- **Google consent screen:** add `https://rickshawmate.vercel.app/privacy` and `/terms` as the privacy policy and terms links.
-
-**5. Custom domain (optional).** Project → Settings → Domains. Then update `NEXT_PUBLIC_SITE_URL`, the Supabase URLs and the Google origin to the new domain.
-
-### Routes
-
-| URL | What it is |
-| --- | --- |
-| `/` | The app. It accepts `?from=<hub-id>&to=<hub-id>`, e.g. `/?from=aftab-nagar-gate&to=rampura-bridge`. The address bar updates as you pick a route, and the **Share this route link** button shares it (for WhatsApp groups). Invalid pairs are ignored. |
-| `/privacy`, `/terms` | Static legal pages (Google sign-in review asks for them). They are templates, so have them reviewed before launch. |
-| `/robots.txt`, `/sitemap.xml` | Generated, using your production domain on Vercel. |
-| `/manifest.webmanifest` | PWA manifest with 192/512 and maskable icons. |
-| anything else | A friendly 404 page. Runtime errors show a "Try again" page. |
-
-Responses carry security headers (`X-Frame-Options`, `nosniff`, `Referrer-Policy`, camera-only `Permissions-Policy`), set in [next.config.ts](next.config.ts). The app is fully static, so no server region needs choosing.
-
-**Folder name:** the project folder is still called `riksha-share`. It doesn't affect the deploy, and you can rename it any time with `mv`.
-
-## Live updates, refresh and troubleshooting
-
-- **Three layers keep the feed correct:** Realtime pushes changes instantly, a silent refetch runs every 12 s (and on tab focus or reconnect) as a safety net, and the last result is cached per route so a reload paints instantly. Fetched data is merged with newer live changes, so a slow response can't hide a fresh post.
-- **Pull down to refresh** refetches the feed in place. The browser's own pull-to-refresh (a full page reload) is disabled on purpose, because it caused a flash.
-- **If a post still doesn't appear on another device**, open the console on that device and look for `[RickshawMate:realtime]` lines. A warning that live updates did not connect means `ride_requests` is missing from the Realtime publication. Fix it in the SQL editor:
-  ```sql
-  select * from pg_publication_tables where pubname = 'supabase_realtime';   -- ride_requests should be listed
-  alter publication supabase_realtime add table public.ride_requests;        -- only if it is missing
-  ```
-  Even then the list heals itself within 12 s.
-- Both people must have the **same From and To** selected. The address bar shows the current route, so you can compare.
-
-## Reading the browser console
-
-Open DevTools → Console. In development the app logs each step with a `[RickshawMate:<area>]` tag:
-
-```
-✅ [RickshawMate:auth]      Signed in anonymously (user 3f9a1c2e)
-✅ [RickshawMate:database]  Database connected successfully: loaded 11 hubs and 16 routes
-✅ [RickshawMate:realtime]  Live updates connected for aftab-nagar-gate → rampura-bridge
-ℹ️ [RickshawMate:feed]      Loaded 2 active ride(s) for aftab-nagar-gate → rampura-bridge
-ℹ️ [RickshawMate:photo]     Compressed 3201.4 KB → 48.2 KB (image/webp)
-✅ [RickshawMate:post]      Ride posted (id 7d21b0aa), it expires in 15 minutes
-ℹ️ [RickshawMate:realtime]  UPDATE on ride 7d21b0aa (status: matched)
-```
-
-Red ❌ lines explain what to fix (missing env vars, anonymous sign-ins off, migrations not run, Realtime not enabled). Logs never include names, phone numbers or photo URLs. They are off in production builds unless you set `NEXT_PUBLIC_DEBUG_LOGS=true`.
+Other things to try: a second post while one is live is refused. Use the sun/moon button for light or dark mode and **EN / বাংলা** for language. **Share this route link** sends people straight to a route.
 
 ## How it works
 
@@ -160,6 +88,9 @@ Red ❌ lines explain what to fix (missing env vars, anonymous sign-ins off, mig
 | Routes | `hub_routes` lists the only valid origin → destination pairs, with a per-person fare range. `create_ride()` and a foreign key on `ride_requests` both reject any other pair. |
 | Photo rule | `create_ride()` refuses a post without a photo. The client compresses and uploads it first, and a failed upload stops the post. |
 | One live post | `create_ride()` refuses a new post while you have a waiting one (`already_waiting`). A partial unique index also stops two tabs racing. You can remove your own post early. |
+| Match lifecycle | `complete_ride()` and `cancel_match()` end a match for both people. `claim_ride()` and `create_ride()` refuse a new match while you are in one (`already_matched`), time-boxed to 3 hours. |
+| Trust profiles | `get_public_profile()` returns completed, cancelled-after-match, withdrawn, posted and joined counts plus a completion rate. It never includes phone or email. |
+| Live overview | `get_live_routes()` powers the Home list. Any change to rides refreshes it, with a 12 s poll as a safety net. |
 | History and profiles | Policies let you read your own rides at any age. `get_public_profile()` returns only name, photo, member-since, ride counts and verified. |
 | Countdown | The clock follows the database time and ticks every second. Each card shows mm:ss in a ring that drains and turns amber under 5 min and red under 1 min. |
 | Theme | Colours are CSS variables switched by `data-theme` on `<html>`. The choice is saved on the device, and dark is the default. |
@@ -175,7 +106,7 @@ Red ❌ lines explain what to fix (missing env vars, anonymous sign-ins off, mig
 src/
   app/          Next.js layout, page, global styles
   components/   UI (Header, Feed, CommuterCard, PostRideSheet, ProfileSheet, MatchedScreen, ...)
-  hooks/        useRides (Realtime), useMyMatch, useMyRides, useServerClock, useProfile
+  hooks/        useRides, useLiveRoutes, useActiveMatch, useMyRides, useServerClock, useProfile
   lib/          supabaseClient, rides (queries + RPCs), compressImage, auth, i18n, phone, time
   types/        Shared TypeScript types
   mock/         Translations and the offline fallback landmark list

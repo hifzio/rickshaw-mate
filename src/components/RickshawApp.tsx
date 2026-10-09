@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Plus, Share2, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { BottomNav } from "@/components/BottomNav";
 import { Feed } from "@/components/Feed";
 import { Header } from "@/components/Header";
+import { HomeScreen } from "@/components/HomeScreen";
 import { useAuth } from "@/components/AuthProvider";
-import { HistorySheet } from "@/components/HistorySheet";
+import { RidesScreen } from "@/components/RidesScreen";
 import { LivePostBanner } from "@/components/LivePostBanner";
 import { SignInSheet } from "@/components/SignInSheet";
 import { UserProfileSheet } from "@/components/UserProfileSheet";
@@ -16,18 +18,28 @@ import { MatchedScreen } from "@/components/MatchedScreen";
 import { PostRideSheet } from "@/components/PostRideSheet";
 import { ProfileSheet } from "@/components/ProfileSheet";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { RoutePrompt } from "@/components/RoutePrompt";
+import { RouteBar } from "@/components/RouteBar";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Toast } from "@/components/Toast";
-import { markDismissed, useMyMatch } from "@/hooks/useMyMatch";
+import { markDismissed, useActiveMatch } from "@/hooks/useActiveMatch";
+import { useLiveRoutes } from "@/hooks/useLiveRoutes";
 import { useMyRides } from "@/hooks/useMyRides";
 import { useProfile } from "@/hooks/useProfile";
 import { useRides } from "@/hooks/useRides";
 import { useServerClock } from "@/hooks/useServerClock";
-import { cancelRide, claimRide, createRide, mapRide, RideError, uploadPhoto } from "@/lib/rides";
+import {
+  cancelMatch,
+  cancelRide,
+  claimRide,
+  completeRide,
+  createRide,
+  mapRide,
+  RideError,
+  uploadPhoto,
+} from "@/lib/rides";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import { EMPTY_ROUTE } from "@/mock/landmarks";
-import type { HistoryItem, MatchInfo, NewPostInput, Profile, RidePost, RouteFilter } from "@/types";
+import type { HistoryItem, NewPostInput, Profile, RidePost, RouteFilter } from "@/types";
 
 const noopSubscribe = () => () => {};
 
@@ -47,19 +59,28 @@ export function RickshawApp() {
   return mounted ? <LiveApp /> : <AppShell />;
 }
 
-/** Route from a shared link (?from=&to=), else the last route used on this device, else none. */
+/** Route from a shared link (?from=&to=). Otherwise we land on the Home overview. */
 function readInitialRoute(isValidRoute: (o: string, d: string) => boolean): RouteFilter {
   try {
     const params = new URLSearchParams(window.location.search);
     const from = params.get("from");
     const to = params.get("to");
     if (from && to && isValidRoute(from, to)) return { originId: from, destinationId: to };
+  } catch {
+    /* ignore */
+  }
+  return EMPTY_ROUTE;
+}
+
+/** The last route this device looked at, offered as a shortcut on Home. */
+function readRecentRoute(isValidRoute: (o: string, d: string) => boolean): RouteFilter | null {
+  try {
     const saved = JSON.parse(localStorage.getItem(ROUTE_KEY) ?? "null") as RouteFilter | null;
     if (saved && isValidRoute(saved.originId, saved.destinationId)) return saved;
   } catch {
     /* storage unavailable */
   }
-  return EMPTY_ROUTE;
+  return null;
 }
 
 const ROUTE_KEY = "rs:route";
@@ -69,12 +90,13 @@ const ERROR_KEYS: Record<string, string> = {
   invalid_name: "errName",
   invalid_route: "errRoute",
   already_waiting: "errAlreadyWaiting",
+  already_matched: "errAlreadyMatched",
   photo_required: "errPhotoRequired",
   not_authenticated: "errSignIn",
   sign_in_required: "errSignIn",
 };
 
-type PendingAuth = { type: "post" } | { type: "claim"; post: RidePost } | { type: "none" };
+type PendingAuth = { type: "post" } | { type: "claim"; post: RidePost } | { type: "rides" } | { type: "none" };
 
 function LiveApp() {
   const { t, lang } = useLang();
@@ -85,6 +107,7 @@ function LiveApp() {
   const { isValidRoute, find } = useHubs();
   const [route, setRoute] = useState<RouteFilter>(() => readInitialRoute(isValidRoute));
   const routeReady = isValidRoute(route.originId, route.destinationId);
+  const [recent] = useState<RouteFilter | null>(() => readRecentRoute(isValidRoute));
 
   // If the live route table no longer allows the selection, clear the destination.
   useEffect(() => {
@@ -118,12 +141,13 @@ function LiveApp() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  // Bottom-bar tabs share one page: switching swaps the content in place (no overlay).
+  const [tab, setTab] = useState<"find" | "rides">("find");
   const [profileView, setProfileView] = useState<{ id: string; name: string; photoUrl?: string } | null>(null);
   const [pendingAuth, setPendingAuth] = useState<PendingAuth | null>(null);
   const [pendingClaim, setPendingClaim] = useState<RidePost | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [match, setMatch] = useState<MatchInfo | null>(null);
+  const [matchBusy, setMatchBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = useCallback((message: string) => {
@@ -136,13 +160,10 @@ function LiveApp() {
     [t],
   );
 
-  // The person who was waiting learns about the match here (via Realtime).
   const { items: myRides, loading: historyLoading, refresh: refreshMyRides } = useMyRides(uid);
-  useMyMatch(
-    uid,
-    (info) => setMatch((cur) => cur ?? info),
-    () => void refreshMyRides(),
-  );
+  // Both riders see the match screen until it is completed or cancelled (live + restored on reload).
+  const { match, setMatch, recheck: recheckMatch } = useActiveMatch(uid, () => void refreshMyRides());
+  const liveRoutes = useLiveRoutes(true);
 
   // One live post at a time: if I have one (on any route), posting again is blocked.
   const myLive = useMemo(
@@ -214,11 +235,15 @@ function LiveApp() {
           name: input.name,
           phone: input.phone,
           note: input.note,
-          originId: route.originId,
-          destinationId: route.destinationId,
+          originId: input.originId,
+          destinationId: input.destinationId,
           photoUrl,
         });
         setProfile({ name: input.name, phone: input.phone });
+        // Land on the route you just posted to, so you see your post and everyone else on it.
+        setRoute({ originId: input.originId, destinationId: input.destinationId });
+        if ((window.history.state as { tab?: string } | null)?.tab === "rides") window.history.replaceState(null, "");
+        setTab("find");
         addRide(row);
         void refreshMyRides();
         setSheetOpen(false);
@@ -229,7 +254,7 @@ function LiveApp() {
         return false;
       }
     },
-    [uid, route, addRide, refreshMyRides, setProfile, showToast, t, errorText],
+    [uid, addRide, refreshMyRides, setProfile, showToast, t, errorText],
   );
 
   const claim = useCallback(
@@ -242,6 +267,8 @@ function LiveApp() {
           void refreshMyRides();
           setMatch({
             rideId: res.ride.id,
+            status: "active",
+            endedBy: null,
             role: "claimer",
             partnerId: res.ride.owner_id,
             partnerName: res.ride.user_name,
@@ -271,7 +298,7 @@ function LiveApp() {
         setBusyId(null);
       }
     },
-    [removeRide, refreshMyRides, showToast, t, errorText],
+    [removeRide, refreshMyRides, setMatch, showToast, t, errorText],
   );
 
   const handleShare = useCallback(
@@ -326,12 +353,84 @@ function LiveApp() {
     [],
   );
 
-  const handleDismiss = useCallback(() => {
+  const endMatch = useCallback(
+    async (kind: "complete" | "cancel") => {
+      if (!match || matchBusy) return;
+      setMatchBusy(true);
+      try {
+        const res = await (kind === "complete" ? completeRide(match.rideId) : cancelMatch(match.rideId));
+        if (res.ok) {
+          setMatch({ ...match, status: kind === "complete" ? "completed" : "cancelled", endedBy: "me" });
+        } else if (res.reason === "already_completed" || res.reason === "already_cancelled") {
+          void recheckMatch(); // the partner ended it first: show how
+        } else {
+          showToast(t("errMatchEnd"));
+        }
+        void refreshMyRides();
+      } catch (e) {
+        showToast(errorText(e));
+      } finally {
+        setMatchBusy(false);
+      }
+    },
+    [match, matchBusy, setMatch, recheckMatch, refreshMyRides, showToast, t, errorText],
+  );
+
+  const closeMatch = useCallback(() => {
     if (match) markDismissed(match.rideId);
     setMatch(null);
     void refreshMyRides();
     showToast(t("dismissedToast"));
-  }, [match, refreshMyRides, showToast, t]);
+  }, [match, setMatch, refreshMyRides, showToast, t]);
+
+  // The phone's back button should leave "My rides" and return to Find, like a native app.
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      setTab((e.state as { tab?: string } | null)?.tab === "rides" ? "rides" : "find");
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const showFind = useCallback(() => {
+    if ((window.history.state as { tab?: string } | null)?.tab === "rides") window.history.back();
+    else setTab("find");
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  const openRoute = useCallback(
+    (originId: string, destinationId: string) => {
+      setRoute({ originId, destinationId });
+      showFind();
+    },
+    [showFind],
+  );
+  const goHome = useCallback(() => {
+    setRoute(EMPTY_ROUTE);
+    showFind();
+  }, [showFind]);
+
+  const openRides = useCallback(() => {
+    if (!uid) {
+      requireSignIn({ type: "rides" });
+      return;
+    }
+    void refreshMyRides();
+    if (tab !== "rides") window.history.pushState({ tab: "rides" }, "");
+    setTab("rides");
+    window.scrollTo({ top: 0 });
+  }, [uid, tab, requireSignIn, refreshMyRides]);
+
+  const openMyProfile = useCallback(() => {
+    if (uid) setProfileView({ id: uid, name: displayName || profile?.name || "" });
+  }, [uid, displayName, profile]);
+
+  /** Centre button: post, or (if you already have a live post) jump to it. */
+  const onNavPost = useCallback(() => {
+    if (myLive) openRoute(myLive.originId, myLive.destinationId);
+    else openSheet();
+  }, [myLive, openRoute, openSheet]);
 
   // Continue the interrupted action as soon as the account is ready.
   useEffect(() => {
@@ -341,79 +440,86 @@ function LiveApp() {
     showToast(t("signedInToast"));
     if (pendingAuth.type === "post") setSheetOpen(true);
     else if (pendingAuth.type === "claim") handleShare(pendingAuth.post);
-  }, [uid, pendingAuth, handleShare, showToast, t]);
+    else if (pendingAuth.type === "rides") openRides();
+  }, [uid, pendingAuth, handleShare, openRides, showToast, t]);
 
   const ready = now !== null && !loading;
-  const showFeed = routeReady && ready;
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zinc-950 shadow-2xl shadow-black">
       <Header
-        route={route}
-        onRouteChange={setRoute}
+        onHome={goHome}
         onSignIn={() => requireSignIn({ type: "none" })}
-        onHistory={() => {
-          void refreshMyRides();
-          setHistoryOpen(true);
-        }}
+        onProfile={openMyProfile}
+        onHistory={openRides}
       />
 
-      {routeReady && (
-        <button
-          type="button"
-          onClick={() => void shareRoute()}
-          className="mx-4 mt-3 flex h-11 items-center gap-2 rounded-xl bg-zinc-900 px-3.5 text-sm font-bold text-indigo-300 ring-1 ring-line/10 active:scale-95"
-        >
-          <Share2 className="h-4 w-4" aria-hidden />
-          {t("shareRoute")}
-        </button>
-      )}
-
-      {myLive && now !== null && (
+      {tab === "find" && myLive && now !== null && (
         <LivePostBanner item={myLive} now={now} busy={busyId === myLive.id} onRemove={handleRemoveItem} />
       )}
 
-      {feedError && (
-        <p
-          role="alert"
-          className="mx-4 mt-3 flex items-center gap-2 rounded-2xl bg-amber-500/10 p-3 text-sm font-semibold text-amber-200 ring-1 ring-amber-400/25"
-        >
-          <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-          {t("errFeed")}
-        </p>
-      )}
+      {tab === "rides" ? (
+        <PullToRefresh onRefresh={() => refreshMyRides()}>
+          <RidesScreen
+            items={myRides}
+            loading={historyLoading}
+            now={now ?? 0}
+            onViewProfile={(id, name) => setProfileView({ id, name })}
+            onFind={goHome}
+          />
+        </PullToRefresh>
+      ) : routeReady ? (
+        <>
+          <RouteBar route={route} onBack={goHome} onShare={() => void shareRoute()} />
 
-      <PullToRefresh onRefresh={() => Promise.all([refreshFeed(), refreshMyRides()])}>
-        {!routeReady ? (
-          <RoutePrompt hasOrigin={Boolean(route.originId)} />
-        ) : !ready ? (
-          <FeedSkeleton />
-        ) : (
-          <Feed
-            posts={posts}
-            now={now}
-            busyId={busyId}
-            onShare={handleShare}
-            onRemove={handleRemove}
-            onViewProfile={viewPostProfile}
+          {feedError && (
+            <p
+              role="alert"
+              className="mx-4 mt-3 flex items-center gap-2 rounded-2xl bg-amber-500/10 p-3 text-sm font-semibold text-amber-200 ring-1 ring-amber-400/25"
+            >
+              <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
+              {t("errFeed")}
+            </p>
+          )}
+
+          <PullToRefresh onRefresh={() => Promise.all([refreshFeed(), refreshMyRides()])}>
+            {!ready ? (
+              <FeedSkeleton />
+            ) : (
+              <Feed
+                posts={posts}
+                now={now}
+                busyId={busyId}
+                onShare={handleShare}
+                onRemove={handleRemove}
+                onViewProfile={viewPostProfile}
+                onPost={openSheet}
+              />
+            )}
+          </PullToRefresh>
+        </>
+      ) : (
+        <PullToRefresh onRefresh={() => Promise.all([liveRoutes.refresh(), refreshMyRides()])}>
+          <HomeScreen
+            liveRoutes={liveRoutes.routes}
+            liveLoaded={liveRoutes.loaded && now !== null}
+            liveError={liveRoutes.error}
+            onRetryLive={() => void liveRoutes.refresh()}
+            now={now ?? 0}
+            recent={recent}
+            onOpenRoute={openRoute}
             onPost={openSheet}
           />
-        )}
-      </PullToRefresh>
-
-      {/* Floating "I'm Waiting Here" — only when the feed has cards (empty state has its own CTA). */}
-      {showFeed && posts.length > 0 && !myLive && !sheetOpen && !signInOpen && !match && !pendingClaim && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[430px] justify-center bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-8">
-          <button
-            type="button"
-            onClick={openSheet}
-            className="pointer-events-auto flex h-16 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 text-lg font-extrabold text-white shadow-xl shadow-indigo-900/50 ring-1 ring-indigo-300/30 transition active:scale-[0.98] active:bg-indigo-500"
-          >
-            <Plus className="h-6 w-6" strokeWidth={3} aria-hidden />
-            {t("imWaiting")}
-          </button>
-        </div>
+        </PullToRefresh>
       )}
+
+      <BottomNav
+        active={tab}
+        hasLivePost={Boolean(myLive)}
+        onFind={tab === "rides" ? showFind : goHome}
+        onPost={onNavPost}
+        onRides={openRides}
+      />
 
       {sheetOpen && (
         <PostRideSheet
@@ -431,19 +537,13 @@ function LiveApp() {
         />
       )}
       {signInOpen && <SignInSheet onClose={closeSignIn} />}
-      {historyOpen && (
-        <HistorySheet
-          items={myRides}
-          loading={historyLoading}
-          now={now ?? 0}
-          onClose={() => setHistoryOpen(false)}
-          onViewProfile={(id, name) => setProfileView({ id, name })}
-        />
-      )}
       {match && (
         <MatchedScreen
           match={match}
-          onDismiss={handleDismiss}
+          busy={matchBusy}
+          onComplete={() => void endMatch("complete")}
+          onCancel={() => void endMatch("cancel")}
+          onClose={closeMatch}
           onViewProfile={(id, name, photoUrl) => setProfileView({ id, name, photoUrl })}
         />
       )}

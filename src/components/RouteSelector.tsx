@@ -59,9 +59,13 @@ function LandmarkSelect({ id, label, value, options, placeholder, dot, disabled,
 interface RouteSelectorProps {
   route: RouteFilter;
   onChange: (route: RouteFilter) => void;
+  /** Wrapper classes (defaults to the header-style padding). */
+  className?: string;
+  /** Keeps DOM ids unique when two selectors are mounted at once (home card + post sheet). */
+  idPrefix?: string;
 }
 
-export function RouteSelector({ route, onChange }: RouteSelectorProps) {
+export function RouteSelector({ route, onChange, className = "px-4 pb-3", idPrefix = "route" }: RouteSelectorProps) {
   const { t } = useLang();
   const { origins, destinationsFor } = useHubs();
   const locked = !route.originId;
@@ -76,9 +80,9 @@ export function RouteSelector({ route, onChange }: RouteSelectorProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-2 px-4 pb-3">
+    <div className={`grid grid-cols-1 gap-2 ${className}`}>
       <LandmarkSelect
-        id="route-origin"
+        id={`${idPrefix}-origin`}
         label={t("from")}
         value={route.originId}
         options={origins}
@@ -87,7 +91,7 @@ export function RouteSelector({ route, onChange }: RouteSelectorProps) {
         onChange={changeOrigin}
       />
       <LandmarkSelect
-        id="route-destination"
+        id={`${idPrefix}-destination`}
         label={t("to")}
         value={route.destinationId}
         options={destinations}

@@ -18,7 +18,7 @@ export interface RouteInfo {
   fareMax: number;
 }
 
-export type RideStatus = "waiting" | "matched" | "expired" | "cancelled";
+export type RideStatus = "waiting" | "matched" | "completed" | "expired" | "cancelled";
 
 /** Row shape of `public.ride_requests`. */
 export interface RideRow {
@@ -35,6 +35,10 @@ export interface RideRow {
   is_verified: boolean;
   created_at: string;
   expires_at: string;
+  completed_at: string | null;
+  completed_by: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
 }
 
 /** Row shape of `public.ride_contacts` (visible only to the two riders). */
@@ -81,6 +85,8 @@ export interface Profile {
 }
 
 export interface NewPostInput extends Profile {
+  originId: string;
+  destinationId: string;
   note: string;
   photo?: File;
 }
@@ -88,6 +94,10 @@ export interface NewPostInput extends Profile {
 /** Everything the matched screen needs, for either side of the match. */
 export interface MatchInfo {
   rideId: string;
+  /** "active" until someone completes or cancels; then the screen shows how it ended. */
+  status: "active" | "completed" | "cancelled";
+  /** Who ended it, once it has ended. */
+  endedBy: "me" | "partner" | null;
   /** "claimer" accepted someone's post; "owner" is the person who was waiting. */
   role: "claimer" | "owner";
   partnerId: string | null;
@@ -123,7 +133,25 @@ export interface PublicProfile {
   name: string | null;
   photo_url: string | null;
   member_since: string;
-  shares_completed: number;
-  rides_posted: number;
+  last_active: string | null;
+  /** Rides both sides marked completed. */
+  completed: number;
+  /** Matches this person cancelled after being matched. */
+  cancelled: number;
+  /** Waiting posts withdrawn before anyone joined (not held against them). */
+  withdrawn: number;
+  posted: number;
+  joined: number;
+  /** completed / (completed + cancelled), as a whole percent. Null until they have history. */
+  completion_rate: number | null;
   verified: boolean;
+}
+
+/** One route that has people waiting right now (home screen). */
+export interface LiveRoute {
+  originId: string;
+  destinationId: string;
+  waiting: number;
+  latestPost: number;
+  soonestExpiry: number;
 }

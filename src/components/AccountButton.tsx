@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { History, LogIn, LogOut } from "lucide-react";
+import { History, LogIn, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useLang } from "@/components/LangProvider";
 
-export function AccountButton({ onSignIn, onHistory }: { onSignIn: () => void; onHistory: () => void }) {
+export function AccountButton({
+  onSignIn,
+  onHistory,
+  onProfile,
+}: {
+  onSignIn: () => void;
+  onHistory: () => void;
+  onProfile: () => void;
+}) {
   const { t } = useLang();
   const { user, loading, displayName, signOut } = useAuth();
   const [open, setOpen] = useState(false);
@@ -44,6 +52,17 @@ export function AccountButton({ onSignIn, onHistory }: { onSignIn: () => void; o
           <div className="absolute right-0 top-14 z-50 w-64 animate-pop-in rounded-2xl border border-line/10 bg-zinc-900 p-3 shadow-2xl">
             <p className="truncate px-2 text-sm font-bold text-fg">{displayName || t("account")}</p>
             <p className="truncate px-2 pb-2 text-xs text-slate-400">{user.email}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onProfile();
+              }}
+              className="flex h-12 w-full items-center gap-2 rounded-xl px-2 text-sm font-bold text-fg active:bg-zinc-800"
+            >
+              <UserRound className="h-4 w-4 text-indigo-300" aria-hidden />
+              {t("myProfile")}
+            </button>
             <button
               type="button"
               onClick={() => {

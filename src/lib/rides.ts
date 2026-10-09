@@ -5,6 +5,8 @@ import type {
   ClaimResult,
   HistoryItem,
   Landmark,
+  LiveRoute,
+  MatchInfo,
   PublicProfile,
   RideContact,
   RidePost,
@@ -173,6 +175,85 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
   const { data, error } = await getSupabase().rpc("get_public_profile", { p_user_id: userId });
   if (error) fail(error);
   return (data as PublicProfile | null) ?? null;
+}
+
+export async function fetchLiveRoutes(): Promise<LiveRoute[]> {
+  const { data, error } = await getSupabase().rpc("get_live_routes");
+  if (error) fail(error);
+  return ((data ?? []) as {
+    origin_id: string;
+    destination_id: string;
+    waiting: number;
+    latest_post: string;
+    soonest_expiry: string;
+  }[]).map((r) => ({
+    originId: r.origin_id,
+    destinationId: r.destination_id,
+    waiting: r.waiting,
+    latestPost: new Date(r.latest_post).getTime(),
+    soonestExpiry: new Date(r.soonest_expiry).getTime(),
+  }));
+}
+
+/** Turns a ride row into what the matched screen needs, from either rider's point of view. */
+export async function buildMatchInfo(row: RideRow, uid: string): Promise<MatchInfo | null> {
+  const owner = row.owner_id === uid;
+  const contact = await fetchContact(row.id);
+  const phone = owner ? contact?.claimer_phone : contact?.owner_phone;
+  if (!phone) return null;
+  const status: MatchInfo["status"] =
+    row.status === "completed" ? "completed" : row.status === "cancelled" ? "cancelled" : "active";
+  const endedById = row.status === "completed" ? row.completed_by : row.cancelled_by;
+  return {
+    rideId: row.id,
+    status,
+    endedBy: status === "active" ? null : endedById === uid ? "me" : "partner",
+    role: owner ? "owner" : "claimer",
+    partnerId: owner ? row.matched_with : row.owner_id,
+    partnerName: owner ? (contact?.claimer_name ?? "") : row.user_name,
+    partnerPhone: phone,
+    partnerPhotoUrl: owner ? undefined : (row.photo_url ?? undefined),
+    partnerVerified: owner ? false : row.is_verified,
+    note: row.standing_note,
+    originId: row.origin_id,
+    destinationId: row.destination_id,
+  };
+}
+
+/**
+ * The rider's current match, so it survives a reload and shows for BOTH sides: the newest ride
+ * from the last 6 hours that was matched and not yet dismissed on this device.
+ */
+export async function fetchLatestMatch(uid: string): Promise<RideRow | null> {
+  const since = new Date(Date.now() - 6 * 3600_000).toISOString();
+  const { data, error } = await getSupabase()
+    .from("ride_requests")
+    .select("*")
+    .or(`owner_id.eq.${uid},matched_with.eq.${uid}`)
+    .not("matched_with", "is", null)
+    .gte("created_at", since)
+    .order("matched_at", { ascending: false })
+    .limit(1);
+  if (error) fail(error);
+  return ((data ?? [])[0] as RideRow | undefined) ?? null;
+}
+
+type EndResult = { ok: true } | { ok: false; reason: string };
+
+export async function completeRide(rideId: string): Promise<EndResult> {
+  const { data, error } = await getSupabase().rpc("complete_ride", { p_ride_id: rideId });
+  if (error) fail(error);
+  const res = data as EndResult;
+  log.info("match", res.ok ? `Ride ${short(rideId)} marked completed` : `Complete refused: ${res.reason}`);
+  return res;
+}
+
+export async function cancelMatch(rideId: string): Promise<EndResult> {
+  const { data, error } = await getSupabase().rpc("cancel_match", { p_ride_id: rideId });
+  if (error) fail(error);
+  const res = data as EndResult;
+  log.info("match", res.ok ? `Match ${short(rideId)} cancelled` : `Cancel refused: ${res.reason}`);
+  return res;
 }
 
 export async function createRide(args: {
